@@ -1,6 +1,6 @@
 require 'CSV'
 class MySqliteRequest
-    attr_accessor :type_request, :table_name, :table_data, :columns_name, :where_p, :insert_attribute
+    attr_accessor :type_request
 
     def initialize
         @type_request = :none
@@ -9,6 +9,7 @@ class MySqliteRequest
         @columns_name = []
         @where_p = []
         @insert_attribute = {}
+        @result = []
         self
     end
 
@@ -23,9 +24,11 @@ class MySqliteRequest
         if(columns.is_a?(Array))
             @columns_name += columns.collect{ | element | element.to_s }
         else
-            if(columns == "*")
+            if(columns == '*')
                 array = CSV.parse(File.read(@table_name))
                 @columns_name = array[0]
+                p "column name"
+                p @columns_name
             else
                 @columns_name = columns.to_s
             end
@@ -77,20 +80,19 @@ class MySqliteRequest
     end
 
     def run_select
-        p "-----------------------------------------------------------------------------------------------------------"
-        puts
         @table_data.each do |row|
             if(@where_p.empty?)
-                p row.to_hash.slice(*@columns_name)
+                @result << row.to_hash.slice(*@columns_name)
             else
                 @where_p.each do |where_a|
                     if row[where_a[0]] == where_a[1]
-                        p row.to_hash.slice(*@columns_name)
+                        @result << row.to_hash.slice(*@columns_name)
                     end
                 end
             end
         end
-        #p @result
+        p "----------------------------------------------------------------------------"
+        print @result
     end
 
     def run_insert
@@ -142,8 +144,16 @@ class MySqliteRequest
     end
 
     def run
+        puts "BEFORE ASSIGNING TYPE OF REQUEST"
         printRequest
         puts
+
+        self.type_request = "ASSIGN SOME VALUE HERE AFTER CHECKING ARRAY"
+
+        puts "BEFORE ASSIGNING TYPE OF REQUEST"
+        printRequest
+        puts
+
         run_select if(@type_request == :select)
         run_insert if(@type_request == :insert)
         run_update if(@type_request == :update)
@@ -172,7 +182,7 @@ def main
     # request = request.values('name'=>'Alaa Renamed')
     # request = request.where('name', 'Alaa Abdelnaby')
 
-    #request.run
+    request.run
 end
 
 main
