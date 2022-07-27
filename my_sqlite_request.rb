@@ -1,5 +1,6 @@
 require 'CSV'
 class MySqliteRequest
+    attr_accessor :type_request
 
     def initialize
         @type_request = :none
@@ -134,12 +135,25 @@ class MySqliteRequest
         p "\n"
     end
 
-    def run
+    def printRequest
         puts "Type of request : #{@type_request}"
         puts "Table name : #{@table_name}"
         puts "Colunms name : #{@columns_name}" if(@type_request==:select)
         puts "Where values : #{@where_p}" if(@type_request==:select or @type_request ==:delete)
         puts "insert attribute : #{@insert_attribute}" if(@type_request==:insert)
+    end
+
+    def run
+        puts "BEFORE ASSIGNING TYPE OF REQUEST"
+        printRequest
+        puts
+
+        self.type_request = "ASSIGN SOME VALUE HERE AFTER CHECKING ARRAY"
+
+        puts "BEFORE ASSIGNING TYPE OF REQUEST"
+        printRequest
+        puts
+
         run_select if(@type_request == :select)
         run_insert if(@type_request == :insert)
         run_update if(@type_request == :update)
@@ -168,7 +182,7 @@ def main
     # request = request.values('name'=>'Alaa Renamed')
     # request = request.where('name', 'Alaa Abdelnaby')
 
-    #request.run
+    request.run
 end
 
 main
