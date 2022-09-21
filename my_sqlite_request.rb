@@ -1,7 +1,7 @@
 require 'CSV'
 class MySqliteRequest
-    attr_accessor :type_request
-
+    attr_accessor :type_request, :table_name, :table_data, :columns_name, :where_p, :insert_attribute
+    
     def initialize
         @type_request = :none
         @table_name = :none
@@ -9,7 +9,9 @@ class MySqliteRequest
         @columns_name = []
         @where_p = []
         @insert_attribute = {}
-        @result = []
+        @set_attribute = {}
+        @order = :acd
+        @order_column = :none
         self
     end
 
@@ -24,11 +26,9 @@ class MySqliteRequest
         if(columns.is_a?(Array))
             @columns_name += columns.collect{ | element | element.to_s }
         else
-            if(columns == '*')
+            if(columns == "*")
                 array = CSV.parse(File.read(@table_name))
                 @columns_name = array[0]
-                p "column name"
-                p @columns_name
             else
                 @columns_name = columns.to_s
             end
@@ -41,12 +41,32 @@ class MySqliteRequest
         self
     end
 
+
     def join(column_on_db_a, filename_db_b, column_on_db_b)
+        @table_data_1 = @table_data
+        @table_data_2 = CSV.parse(File.read(filename_db_b), headers:true)
+        @table_data = []
+        @table_data_2.each do |row2|
+            row2 = row2.to_h
+            @table_data_1.each do |row1|
+                row1 = row1.to_h
+                if(row1[column_on_db_a]==row2[column_on_db_b])
+                    @table_data << row1.merge!(row2)
+                    # p row1.merge!(row2)
+                end
+            end
+        end 
         self
     end
 
     def order(order, column_name)
-
+        @order = order
+        @order_column = column_name
+        if @order == "ASC"
+            @table_data.sort!(@order_column)
+      elsif @order == "DESC"
+            @table_data.sort!(@order_column)
+      end
         self
     end
 
@@ -54,7 +74,6 @@ class MySqliteRequest
         @type_request = :insert
         @table_name = table_name
         @table_data = CSV.parse(File.read(@table_name), headers:true)
-
         self
     end
 
@@ -71,6 +90,7 @@ class MySqliteRequest
     end
 
     def set(data)
+        @set_attribute = data
         self
     end
 
@@ -80,24 +100,32 @@ class MySqliteRequest
     end
 
     def run_select
+        p "-----------------------------------------------------------------------------------------------------------"
+        puts
         @table_data.each do |row|
             if(@where_p.empty?)
-                @result << row.to_hash.slice(*@columns_name)
+                p row.to_hash.slice(*@columns_name)
+            elsif (@where_p.length() == 1)
+                if row[@where_p[0][0]] == @where_p[1][0]
+                    p row.to_hash.slice(*@columns_name)
+                end
             else
-                @where_p.each do |where_a|
-                    if row[where_a[0]] == where_a[1]
-                        @result << row.to_hash.slice(*@columns_name)
-                    end
+                if ((row[@where_p[0][0]] == @where_p[0][1]) && (row[@where_p[1][0]] == @where_p[1][1]))
+                    p row.to_hash.slice(*@columns_name)
                 end
             end
         end
-        p "----------------------------------------------------------------------------"
-        print @result
     end
 
     def run_insert
-        open(@table_name, 'a') do |f|
-            f.puts @insert_attribute.values.join(',')
+        if(@insert_attribute.is_a?(Array))
+            open(@table_name, 'a') do |f|
+                f.puts @insert_attribute.join(',')
+            end
+        else
+            open(@table_name, 'a') do |f|
+                f.puts @insert_attribute.values.join(',')
+            end
         end
     end
 
@@ -107,11 +135,11 @@ class MySqliteRequest
             @where_p.each do |where_a|
                 i+=1
                 if row[where_a[0]] == where_a[1]
-                    row[where_a[0]] = @insert_attribute.values.join
+                    row[where_a[0]] = @set_attribute.values.join
                 end
             end
         end
-        open(@table_name, 'r+') do |f|
+        open(@table_name, 'r+') do |f| 
             f.write(@table_data)
         end
         print @table_data
@@ -125,14 +153,18 @@ class MySqliteRequest
                 i+=1
                 if row[where_a[0]] == where_a[1]
                     arr_of_arrs.to_a.delete_at(i)
+                    next
                 end
             end
-        end
+        end       
         open(@table_name, 'r+') do |f|
-            f.write(arr_of_arrs)
+            f.puts CSV.generate { |csv| arr_of_arrs.each { |row| csv << row } }
         end
-        print arr_of_arrs
-        p "\n"
+        puts 
+        arr_of_arrs.each do |row|
+            p row.join(',')
+        end
+        puts
     end
 
     def printRequest
@@ -144,16 +176,8 @@ class MySqliteRequest
     end
 
     def run
-        puts "BEFORE ASSIGNING TYPE OF REQUEST"
         printRequest
         puts
-
-        self.type_request = "ASSIGN SOME VALUE HERE AFTER CHECKING ARRAY"
-
-        puts "BEFORE ASSIGNING TYPE OF REQUEST"
-        printRequest
-        puts
-
         run_select if(@type_request == :select)
         run_insert if(@type_request == :insert)
         run_update if(@type_request == :update)
@@ -164,9 +188,14 @@ end
 def main
     request = MySqliteRequest.new
     #SELECT
-    # request = request.from('player_test.csv')
-    # request = request.select('*')
-    # request = request.where('weight', '225')
+    request = request.from('nba_text.csv')
+    request = request.select('*')
+    request = request.order("ASC",'Country')
+
+    # request = request.join('CustomerID', 'nba_text.csv', 'CustomerID')
+    
+    # request = request.where('CustomerID', '1')
+    # request = request.where('Country', 'Germany')
 
     #INSERT
     # request = request.insert('player_test.csv')
@@ -183,6 +212,7 @@ def main
     # request = request.where('name', 'Alaa Abdelnaby')
 
     request.run
+
 end
 
 main
